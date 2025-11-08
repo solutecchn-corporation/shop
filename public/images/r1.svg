@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="100%" height="100%" fill="#eef6ff"/>
+  <g fill="#0b5ed7" font-family="Arial, Helvetica, sans-serif" font-weight="700">
+    <text x="50%" y="48%" font-size="40" text-anchor="middle">Compresor 1/4 HP</text>
+    <text x="50%" y="62%" font-size="20" text-anchor="middle" fill="#035388">Repuestos Refrigeración</text>
+  </g>
+</svg>

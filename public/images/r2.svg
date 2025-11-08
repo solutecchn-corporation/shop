@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600" viewBox="0 0 800 600">
+  <rect width="100%" height="100%" fill="#fff7ed"/>
+  <g fill="#d9730d" font-family="Arial, Helvetica, sans-serif" font-weight="700">
+    <text x="50%" y="48%" font-size="40" text-anchor="middle">Válvula de expansión</text>
+    <text x="50%" y="62%" font-size="20" text-anchor="middle" fill="#b45309">Repuestos Refrigeración</text>
+  </g>
+</svg>
