@@ -1,7 +1,6 @@
-import React from 'react'
-import Loading from './Loading'
+import React from "react";
+import Store from "./Store";
 
 export default function App() {
-  return <Loading />
+  return <Store />;
 }
-

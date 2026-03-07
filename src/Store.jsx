@@ -1,152 +1,251 @@
-import React, { useMemo, useState, useEffect } from 'react'
-import Header from './components/Header'
-import FilterBar from './components/FilterBar'
-import ProfileModal from './components/ProfileModal'
-import Sidebar from './components/Sidebar'
-import ProductList from './components/ProductList'
-import Cart from './components/Cart'
-import productsData from './data/products'
+import React, { useMemo, useState, useEffect } from "react";
+import Header from "./components/Header";
+import FilterBar from "./components/FilterBar";
+import ProfileModal from "./components/ProfileModal";
+import Sidebar from "./components/Sidebar";
+import ProductList from "./components/ProductList";
+import Cart from "./components/Cart";
+import MyOrders from "./components/MyOrders";
+import OrderModal from "./components/OrderModal";
+import OrderSuccessModal from "./components/OrderSuccessModal";
+import useProducts from "./hooks/useProducts";
+import { loginWebUser, registerWebUser } from "./lib/auth";
+import { createWebOrder, listUserOrders } from "./lib/orders";
 
-export default function Store(){
-  const [search, setSearch] = useState('')
-  const [category, setCategory] = useState('')
-  const [brand, setBrand] = useState('')
-  const [model, setModel] = useState('')
-  const [cart, setCart] = useState(()=>{
-    try{
-      const rawUser = localStorage.getItem('user')
-      if(rawUser){
-        const u = JSON.parse(rawUser)
-        const ck = `cart_${u.email}`
-        const raw = localStorage.getItem(ck)
-        return raw? JSON.parse(raw): []
+export default function Store() {
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("");
+  const [brand, setBrand] = useState("");
+  const [model, setModel] = useState("");
+  const [cart, setCart] = useState(() => {
+    try {
+      const rawUser = localStorage.getItem("user");
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        const ck = `cart_${u.email || "guest"}`;
+        const raw = localStorage.getItem(ck);
+        return raw ? JSON.parse(raw) : [];
       }
-      const rawGuest = localStorage.getItem('cart_guest')
-      return rawGuest? JSON.parse(rawGuest): []
-    }catch(e){
-      return []
+      const rawGuest = localStorage.getItem("cart_guest");
+      return rawGuest ? JSON.parse(rawGuest) : [];
+    } catch (e) {
+      return [];
     }
-  })
-  const [view, setView] = useState('catalog') // 'catalog' | 'cart'
-  const [profileOpen, setProfileOpen] = useState(false)
-  const [user, setUser] = useState(()=>{
-    try{ const raw = localStorage.getItem('user'); return raw? JSON.parse(raw): null }catch(e){return null}
-  })
+  });
+  const [view, setView] = useState("catalog"); // 'catalog' | 'cart' | 'orders'
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
+  const [orderSubmitting, setOrderSubmitting] = useState(false);
+  const [orderError, setOrderError] = useState("");
+  const [successOrderNumber, setSuccessOrderNumber] = useState("");
+  const [successOpen, setSuccessOpen] = useState(false);
+  const [orders, setOrders] = useState([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState("");
+  const [user, setUser] = useState(() => {
+    try {
+      const raw = localStorage.getItem("user");
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  });
 
-  // simple accounts storage in localStorage
-  function getAccounts(){
-    try{ const raw = localStorage.getItem('accounts'); return raw? JSON.parse(raw): [] }catch(e){return []}
+  async function loadOrders(userId) {
+    if (!userId) {
+      setOrders([]);
+      setOrdersError("");
+      return;
+    }
+
+    setOrdersLoading(true);
+    setOrdersError("");
+    try {
+      const result = await listUserOrders(userId);
+      setOrders(result);
+    } catch (error) {
+      setOrdersError(error?.message || "No se pudieron cargar los pedidos");
+    } finally {
+      setOrdersLoading(false);
+    }
   }
 
-  function saveAccounts(acc){ localStorage.setItem('accounts', JSON.stringify(acc)) }
-
-  function handleRegister({name,email,password}){
-    const acc = getAccounts()
-    if(acc.find(a=>a.email===email)) return { ok: false, message: 'El email ya está registrado' }
-    acc.push({name,email,password})
-    saveAccounts(acc)
-    setUser({name,email})
-    localStorage.setItem('user', JSON.stringify({name,email}))
-    return { ok: true }
-  }
-
-  function handleLogin({email,password}){
-    const acc = getAccounts()
-    const found = acc.find(a=>a.email===email && a.password===password)
-    if(!found) return { ok: false, message: 'Credenciales incorrectas' }
-    setUser({name:found.name,email:found.email})
-    localStorage.setItem('user', JSON.stringify({name:found.name,email:found.email}))
-    return { ok: true }
-  }
-
-  function handleLogout(){
-    setUser(null)
-    localStorage.removeItem('user')
-  }
-
-  const categories = useMemo(()=>{
-    const s = new Set(productsData.map(p=>p.category))
-    return Array.from(s)
-  },[])
-
-  const filtered = productsData.filter(p=>{
-    const matchCat = category ? p.category === category : true
-    const q = search.trim().toLowerCase()
-    const matchSearch = !q || p.title.toLowerCase().includes(q) || p.description.toLowerCase().includes(q)
-    const matchBrand = !brand || (p.brand && p.brand.toLowerCase().includes(brand.trim().toLowerCase()))
-    const matchModel = !model || (p.model && p.model.toLowerCase().includes(model.trim().toLowerCase()))
-    return matchCat && matchSearch && matchBrand && matchModel
-  })
-
-  function handleAdd(product){
-    setCart((cur)=>{
-      const exists = cur.find(i=>i.id===product.id)
-      if(exists){
-        return cur.map(i=> i.id===product.id ? {...i, qty: i.qty+1} : i)
+  async function handleRegister({ name, email, password }) {
+    try {
+      const res = await registerWebUser({ name, email, password });
+      if (res.ok) {
+        setUser(res.user);
+        localStorage.setItem("user", JSON.stringify(res.user));
       }
-      return [...cur, {...product, qty:1}]
-    })
+      return res;
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "No se pudo registrar la cuenta",
+      };
+    }
   }
 
-  function handleRemove(id){
-    setCart(c=>c.filter(i=>i.id!==id))
+  async function handleLogin({ email, password }) {
+    try {
+      const res = await loginWebUser({ email, password });
+      if (res.ok) {
+        setUser(res.user);
+        localStorage.setItem("user", JSON.stringify(res.user));
+      }
+      return res;
+    } catch (error) {
+      return {
+        ok: false,
+        message: error?.message || "No se pudo iniciar sesión",
+      };
+    }
   }
 
-  function handleQty(id, qty){
-    setCart(c=>c.map(i=>i.id===id ? {...i, qty} : i))
+  function handleLogout() {
+    setUser(null);
+    localStorage.removeItem("user");
+    setOrders([]);
+    setView("catalog");
+  }
+
+  const {
+    products,
+    loading: productsLoading,
+    error: productsError,
+  } = useProducts();
+
+  const categories = useMemo(() => {
+    const s = new Set((products || []).map((p) => p.category));
+    return Array.from(s);
+  }, [products]);
+
+  const filtered = (products || []).filter((p) => {
+    const matchCat = category ? p.category === category : true;
+    const q = search.trim().toLowerCase();
+    const matchSearch =
+      !q ||
+      p.title.toLowerCase().includes(q) ||
+      p.description.toLowerCase().includes(q);
+    const matchBrand =
+      !brand ||
+      (p.brand && p.brand.toLowerCase().includes(brand.trim().toLowerCase()));
+    const matchModel =
+      !model ||
+      (p.model && p.model.toLowerCase().includes(model.trim().toLowerCase()));
+    return matchCat && matchSearch && matchBrand && matchModel;
+  });
+
+  function handleAdd(product) {
+    setCart((cur) => {
+      const exists = cur.find((i) => i.id === product.id);
+      if (exists) {
+        return cur.map((i) =>
+          i.id === product.id ? { ...i, qty: i.qty + 1 } : i,
+        );
+      }
+      return [...cur, { ...product, qty: 1 }];
+    });
+  }
+
+  function handleRemove(id) {
+    setCart((c) => c.filter((i) => i.id !== id));
+  }
+
+  function handleQty(id, qty) {
+    setCart((c) => c.map((i) => (i.id === id ? { ...i, qty } : i)));
   }
 
   // persist cart to localStorage whenever cart or user changes
-  useEffect(()=>{
-    try{
-      const key = user ? `cart_${user.email}` : 'cart_guest'
-      localStorage.setItem(key, JSON.stringify(cart))
-    }catch(e){
+  useEffect(() => {
+    try {
+      const key = user ? `cart_${user.email}` : "cart_guest";
+      localStorage.setItem(key, JSON.stringify(cart));
+    } catch (e) {
       // ignore storage errors
     }
-  },[cart, user])
+  }, [cart, user]);
 
   // when user logs in, merge guest cart into user cart and clear guest cart
-  useEffect(()=>{
-    try{
-      if(user){
-        const userKey = `cart_${user.email}`
-        const rawUserCart = localStorage.getItem(userKey)
-        const userCart = rawUserCart? JSON.parse(rawUserCart): []
-        const rawGuest = localStorage.getItem('cart_guest')
-        const guestCart = rawGuest? JSON.parse(rawGuest): []
+  useEffect(() => {
+    try {
+      if (user) {
+        const userKey = `cart_${user.email}`;
+        const rawUserCart = localStorage.getItem(userKey);
+        const userCart = rawUserCart ? JSON.parse(rawUserCart) : [];
+        const rawGuest = localStorage.getItem("cart_guest");
+        const guestCart = rawGuest ? JSON.parse(rawGuest) : [];
         // merge guestCart into userCart (sum quantities)
-        const map = new Map()
-        userCart.forEach(i=> map.set(i.id, {...i}))
-        guestCart.forEach(i=>{
-          if(map.has(i.id)) map.set(i.id, {...map.get(i.id), qty: map.get(i.id).qty + i.qty})
-          else map.set(i.id, {...i})
-        })
-        const merged = Array.from(map.values())
-        setCart(merged)
-        localStorage.setItem(userKey, JSON.stringify(merged))
-        localStorage.removeItem('cart_guest')
+        const map = new Map();
+        userCart.forEach((i) => map.set(i.id, { ...i }));
+        guestCart.forEach((i) => {
+          if (map.has(i.id))
+            map.set(i.id, { ...map.get(i.id), qty: map.get(i.id).qty + i.qty });
+          else map.set(i.id, { ...i });
+        });
+        const merged = Array.from(map.values());
+        setCart(merged);
+        localStorage.setItem(userKey, JSON.stringify(merged));
+        localStorage.removeItem("cart_guest");
       } else {
         // user logged out -> load guest cart
-        const rawGuest = localStorage.getItem('cart_guest')
-        setCart(rawGuest? JSON.parse(rawGuest): [])
+        const rawGuest = localStorage.getItem("cart_guest");
+        setCart(rawGuest ? JSON.parse(rawGuest) : []);
       }
-    }catch(e){/* ignore */}
-  },[user])
-
-  function handleCheckout(){
-    // simulate order: require user (should be logged in)
-    if(!user){
-      setProfileOpen(true)
-      return
+    } catch (e) {
+      /* ignore */
     }
-    // simple simulated checkout: clear cart and store empty cart
-    const key = `cart_${user.email}`
-    setCart([])
-    localStorage.setItem(key, JSON.stringify([]))
-    // basic confirmation
-    try{ window.alert('Pedido realizado. Nos pondremos en contacto al email proporcionado.') }catch(e){}
-    setView('catalog')
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.id) {
+      loadOrders(user.id);
+      return;
+    }
+
+    setOrders([]);
+    setOrdersError("");
+  }, [user?.id]);
+
+  function handleCheckout() {
+    if (!cart.length) {
+      return;
+    }
+
+    setOrderError("");
+    setOrderOpen(true);
+  }
+
+  async function handleSubmitOrder(customer, onGenericError) {
+    setOrderSubmitting(true);
+    setOrderError("");
+
+    try {
+      const result = await createWebOrder({
+        customer,
+        items: cart,
+        currentUser: user,
+      });
+      const key = user ? `cart_${user.email}` : "cart_guest";
+
+      setCart([]);
+      localStorage.setItem(key, JSON.stringify([]));
+      setOrderOpen(false);
+      setSuccessOrderNumber(result.orderNumber);
+      if (result.customer?.id) {
+        setUser(result.customer);
+        localStorage.setItem("user", JSON.stringify(result.customer));
+        await loadOrders(result.customer.id);
+      }
+      setSuccessOpen(true);
+      setView("catalog");
+    } catch (error) {
+      const message = error?.message || "No se pudo registrar el pedido.";
+      setOrderError(message);
+      if (onGenericError) onGenericError();
+    } finally {
+      setOrderSubmitting(false);
+    }
   }
 
   return (
@@ -154,47 +253,165 @@ export default function Store(){
       <Header
         search={search}
         setSearch={setSearch}
-        cartCount={cart.reduce((s,i)=>s+i.qty,0)}
-        onCartClick={() => setView('cart')}
+        cartCount={cart.reduce((s, i) => s + i.qty, 0)}
+        onCartClick={() => setView("cart")}
         onProfileClick={() => setProfileOpen(true)}
+        onHomeClick={() => setView("catalog")}
+        onOrdersClick={() => setView("orders")}
+        activeView={view}
         user={user}
       />
-      <ProfileModal open={profileOpen} onClose={()=>setProfileOpen(false)} onLogin={handleLogin} onRegister={handleRegister} user={user} onLogout={handleLogout} />
+      <ProfileModal
+        open={profileOpen}
+        onClose={() => setProfileOpen(false)}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        user={user}
+        onLogout={handleLogout}
+        onViewOrders={() => setView("orders")}
+      />
+      <OrderModal
+        open={orderOpen}
+        onClose={() => {
+          if (!orderSubmitting) {
+            setOrderOpen(false);
+            setOrderError("");
+          }
+        }}
+        onSubmit={handleSubmitOrder}
+        items={cart}
+        submitting={orderSubmitting}
+        submitError={orderError}
+        defaultName={user?.name || ""}
+        defaultPhone={user?.phone || ""}
+        defaultAddress={user?.address || ""}
+      />
+      <OrderSuccessModal
+        open={successOpen}
+        orderNumber={successOrderNumber}
+        onClose={() => setSuccessOpen(false)}
+      />
       {/* Filter bar debajo del header */}
       <div className="filter-row">
-        <FilterBar brand={brand} setBrand={setBrand} model={model} setModel={setModel} onClear={()=>{setBrand(''); setModel('')}} />
+        <FilterBar
+          brand={brand}
+          setBrand={setBrand}
+          model={model}
+          setModel={setModel}
+          onClear={() => {
+            setBrand("");
+            setModel("");
+          }}
+        />
       </div>
-      <div className={`store-body ${view === 'catalog' ? 'with-sidebar' : 'no-sidebar'}`}>
-        {view === 'catalog' && (
-          <Sidebar categories={categories} selected={category} onSelect={setCategory} />
+      <div
+        className={`store-body ${view === "catalog" ? "with-sidebar" : "no-sidebar"}`}
+      >
+        {view === "catalog" && (
+          <Sidebar
+            categories={categories}
+            selected={category}
+            onSelect={setCategory}
+          />
         )}
         <main className="store-main">
-          {view === 'catalog' && (
+          {view === "catalog" && (
             <>
-              <section className="hero">
-                <h2>Tienda de Repuestos y Servicios</h2>
-                <p className="muted">Repuestos y servicios para refrigeración, estufas y mantenimiento técnico.</p>
+              <section className="store-benefits">
+                <article className="benefit-card">
+                  <h4>Catálogo técnico</h4>
+                  <p className="muted">
+                    Encuentra repuestos y servicios publicados para la web con
+                    detalle claro y precio en lempiras.
+                  </p>
+                </article>
+                <article className="benefit-card">
+                  <h4>Pedidos simples</h4>
+                  <p className="muted">
+                    Realiza tu pedido en segundos y recibe confirmación para
+                    seguimiento inmediato.
+                  </p>
+                </article>
+                <article className="benefit-card">
+                  <h4>Seguimiento de estados</h4>
+                  <p className="muted">
+                    Si inicias sesión, puedes revisar pedidos pendientes,
+                    enviados, cancelados o pagados.
+                  </p>
+                </article>
               </section>
 
               <section className="catalog">
                 <h3>Productos y Servicios</h3>
-                <ProductList products={filtered} onAdd={handleAdd} />
+                {productsLoading ? (
+                  <div className="empty">Cargando productos...</div>
+                ) : productsError ? (
+                  <div className="empty">Error cargando productos.</div>
+                ) : (
+                  <ProductList products={filtered} onAdd={handleAdd} />
+                )}
               </section>
             </>
           )}
 
-          {view === 'cart' && (
+          {view === "cart" && (
             <section className="cart-view">
               <div className="cart-header">
-                <button className="btn" onClick={()=>setView('catalog')}>← Volver</button>
+                <button className="btn" onClick={() => setView("catalog")}>
+                  ← Volver
+                </button>
                 <h3>Detalle del Carrito</h3>
               </div>
-              <Cart items={cart} onRemove={handleRemove} onChangeQty={handleQty} />
+              <Cart
+                items={cart}
+                onRemove={handleRemove}
+                onChangeQty={handleQty}
+                onCheckout={handleCheckout}
+                onRequireLogin={() => setProfileOpen(true)}
+                user={user}
+              />
+            </section>
+          )}
+
+          {view === "orders" && user && (
+            <MyOrders
+              orders={orders}
+              loading={ordersLoading}
+              error={ordersError}
+              onRefresh={() => loadOrders(user.id)}
+            />
+          )}
+
+          {view === "orders" && !user && (
+            <section className="orders-empty">
+              <h3>Inicia sesión para ver tus pedidos</h3>
+              <p className="muted">
+                Accede desde el ícono de perfil para monitorear el estado de tus
+                compras.
+              </p>
+              <button
+                className="btn primary"
+                onClick={() => setProfileOpen(true)}
+              >
+                Abrir acceso
+              </button>
             </section>
           )}
         </main>
       </div>
-      <footer className="store-footer">&copy; {new Date().getFullYear()} Repuestos & Servicios — Contacto: demo@tienda.local</footer>
+     <footer className="store-footer">
+  <p>© {new Date().getFullYear()} <strong>Repuestos & Servicios Solutecc</strong></p>
+  
+  <p>
+    📞 Teléfono: <a href="tel:98436513">9843-6513</a> | 
+    📧 Correo: <a href="mailto:solutecc2@gmail.com">solutecc2@gmail.com</a>
+  </p>
+
+  <p>
+    📍 Dirección: Coxen Hole, entrada a Mantrapp, frente a Escuela ESBIR,
+    Roatán, Islas de la Bahía
+  </p>
+</footer>
     </div>
-  )
+  );
 }
