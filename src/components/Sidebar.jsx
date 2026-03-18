@@ -1,4 +1,5 @@
 import React from "react";
+import "./Sidebar.css";
 
 const CATEGORY_ICONS = {
   default: (
@@ -10,7 +11,7 @@ const CATEGORY_ICONS = {
 
 export default function Sidebar({ categories, selected, onSelect }) {
   return (
-    <aside className="store-sidebar">
+    <aside className="sidebar-root">
       <div className="sidebar-header">
         <svg
           viewBox="0 0 24 24"

@@ -145,8 +145,7 @@ export default function Store() {
   function playAddToCartSound() {
     if (typeof window === "undefined") return;
 
-    const AudioContextClass =
-      window.AudioContext || window.webkitAudioContext;
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
     if (!AudioContextClass) return;
 
@@ -366,7 +365,6 @@ export default function Store() {
         orderNumber={successOrderNumber}
         onClose={() => setSuccessOpen(false)}
       />
-      {/* Filter bar debajo del header */}
       <div className="filter-row">
         <FilterBar
           brand={brand}
@@ -379,84 +377,102 @@ export default function Store() {
           }}
         />
       </div>
-      {/* Banner de promociones debajo del filtro */}
       <PromoBanner />
 
-      <div
-        className={`store-body ${view === "catalog" ? "with-sidebar" : "no-sidebar"}`}
-      >
-        {view === "catalog" && (
-          <Sidebar
-            categories={categories}
-            selected={category}
-            onSelect={setCategory}
-          />
-        )}
-        <main className="store-main">
+      <div className="store-content-wrap">
+        <div
+          className={`store-body ${view === "catalog" ? "with-sidebar" : "no-sidebar"}`}
+        >
           {view === "catalog" && (
-            <>
-              <section className="catalog">
-                <h3 className="catalog-title">Productos y Servicios</h3>
-                {productsLoading ? (
-                  <div className="empty">Cargando productos...</div>
-                ) : productsError ? (
-                  <div className="empty">Error cargando productos.</div>
-                ) : (
-                  <ProductList
-                    products={filtered}
-                    onAdd={handleAdd}
-                    promoMap={promoMap}
-                  />
-                )}
-              </section>
-            </>
-          )}
-
-          {view === "cart" && (
-            <section className="cart-view">
-              <div className="cart-header">
-                <button className="btn" onClick={() => setView("catalog")}>
-                  ← Volver
-                </button>
-                <h3>Detalle del Carrito</h3>
-              </div>
-              <Cart
-                items={cart}
-                onRemove={handleRemove}
-                onChangeQty={handleQty}
-                onCheckout={handleCheckout}
-                onRequireLogin={() => setProfileOpen(true)}
-                user={user}
-              />
-            </section>
-          )}
-
-          {view === "orders" && user && (
-            <MyOrders
-              orders={orders}
-              loading={ordersLoading}
-              error={ordersError}
-              onRefresh={() => loadOrders(user.id)}
+            <Sidebar
+              categories={categories}
+              selected={category}
+              onSelect={setCategory}
             />
           )}
+          <main className="store-main">
+            {view === "catalog" && (
+              <>
+                <section className="catalog">
+                  <h3 className="catalog-title">Productos y Servicios</h3>
+                  {productsLoading ? (
+                    <div className="empty">Cargando productos...</div>
+                  ) : productsError ? (
+                    <div className="empty">Error cargando productos.</div>
+                  ) : (
+                    <ProductList
+                      products={filtered}
+                      onAdd={handleAdd}
+                      promoMap={promoMap}
+                    />
+                  )}
+                </section>
+              </>
+            )}
 
-          {view === "orders" && !user && (
-            <section className="orders-empty">
-              <h3>Inicia sesión para ver tus pedidos</h3>
-              <p className="muted">
-                Accede desde el ícono de perfil para monitorear el estado de tus
-                compras.
-              </p>
-              <button
-                className="btn primary"
-                onClick={() => setProfileOpen(true)}
-              >
-                Abrir acceso
-              </button>
-            </section>
-          )}
-        </main>
+            {view === "cart" && (
+              <section className="cart-view">
+                <div className="cart-header">
+                  <button className="btn" onClick={() => setView("catalog")}>
+                    ← Volver
+                  </button>
+                  <h3>Detalle del Carrito</h3>
+                </div>
+                <Cart
+                  items={cart}
+                  onRemove={handleRemove}
+                  onChangeQty={handleQty}
+                  onCheckout={handleCheckout}
+                  onRequireLogin={() => setProfileOpen(true)}
+                  user={user}
+                />
+              </section>
+            )}
+
+            {view === "orders" && user && (
+              <MyOrders
+                orders={orders}
+                loading={ordersLoading}
+                error={ordersError}
+                onRefresh={() => loadOrders(user.id)}
+              />
+            )}
+
+            {view === "orders" && !user && (
+              <section className="orders-empty">
+                <h3>Inicia sesión para ver tus pedidos</h3>
+                <p className="muted">
+                  Accede desde el ícono de perfil para monitorear el estado de
+                  tus compras.
+                </p>
+                <button
+                  className="btn primary"
+                  onClick={() => setProfileOpen(true)}
+                >
+                  Abrir acceso
+                </button>
+              </section>
+            )}
+          </main>
+        </div>
+        <footer className="store-footer">
+          <p>
+            © {new Date().getFullYear()}{" "}
+            <strong>Repuestos & Servicios Solutecc</strong>
+          </p>
+
+          <p>
+            📞 Teléfono: <a href="tel:98436513">9843-6513</a> | 📧 Correo:{" "}
+            <a href="mailto:solutecc2@gmail.com">solutecc2@gmail.com</a>
+          </p>
+
+          <p>
+            📍 Dirección: Coxen Hole, entrada a Mantrapp, frente a Escuela
+            ESBIR, Roatán, Islas de la Bahía
+          </p>
+        </footer>
       </div>
+      {/* /store-content-wrap */}
       <div
         className={`cart-toast ${cartNotice ? "show" : ""}`}
         role="status"
@@ -466,22 +482,32 @@ export default function Store() {
         <span className="cart-toast-icon">✓</span>
         <span className="cart-toast-text">{cartNotice}</span>
       </div>
-      <footer className="store-footer">
-        <p>
-          © {new Date().getFullYear()}{" "}
-          <strong>Repuestos & Servicios Solutecc</strong>
-        </p>
-
-        <p>
-          📞 Teléfono: <a href="tel:98436513">9843-6513</a> | 📧 Correo:{" "}
-          <a href="mailto:solutecc2@gmail.com">solutecc2@gmail.com</a>
-        </p>
-
-        <p>
-          📍 Dirección: Coxen Hole, entrada a Mantrapp, frente a Escuela ESBIR,
-          Roatán, Islas de la Bahía
-        </p>
-      </footer>
+      {/* Botón flotante de WhatsApp */}
+      <a
+        href="https://wa.me/50498436513"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="whatsapp-float"
+        aria-label="WhatsApp"
+      >
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          xmlns="http://www.w3.org/2000/svg"
+          aria-hidden
+        >
+          <path
+            d="M20.52 3.48A11.94 11.94 0 0012 0C5.37 0 .01 5.37.01 12c0 2.11.55 4.14 1.6 5.93L0 24l6.34-1.65A11.96 11.96 0 0012 24c6.63 0 12-5.37 12-12 0-3.2-1.25-6.2-3.48-8.52z"
+            fill="#25D366"
+          />
+          <path
+            d="M17.5 14.2c-.3-.15-1.76-.86-2.03-.96-.27-.1-.47-.15-.67.15s-.77.96-.95 1.16c-.18.2-.36.22-.66.07-.3-.15-1.26-.46-2.4-1.48-.89-.79-1.49-1.77-1.66-2.07-.17-.3-.02-.46.13-.6.13-.13.3-.35.45-.52.15-.18.2-.3.3-.5.1-.2 0-.38-.02-.53-.02-.15-.67-1.6-.92-2.2-.24-.58-.49-.5-.67-.51-.17-.02-.37-.02-.57-.02-.2 0-.53.07-.8.36-.27.29-1.03 1.01-1.03 2.46 0 1.44 1.05 2.83 1.2 3.03.15.2 2.07 3.33 5.02 4.67 2.95 1.34 2.95.89 3.48.83.53-.06 1.76-.72 2.01-1.42.25-.7.25-1.3.18-1.42-.07-.12-.27-.18-.57-.33z"
+            fill="#fff"
+          />
+        </svg>
+      </a>
     </div>
   );
 }

@@ -28,7 +28,11 @@ export default function useBanners() {
           .or(`fecha_fin.is.null,fecha_fin.gte.${today}`)
           .order("orden", { ascending: true });
 
-        if (error) throw error;
+        if (error) {
+          console.error("❌ Error Supabase banners:", error);
+          throw error;
+        }
+        console.log("✅ Banners recibidos:", data);
         if (mounted) setBanners(data || []);
       } catch (err) {
         console.warn("banners_promocionales:", err?.message);
