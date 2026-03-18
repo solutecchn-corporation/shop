@@ -365,7 +365,19 @@ export default function Store() {
         orderNumber={successOrderNumber}
         onClose={() => setSuccessOpen(false)}
       />
-      <div className="filter-row">
+      {/* Sidebar para móviles que reemplaza al FilterBar */}
+      {view === "catalog" && (
+        <div className="mobile-sidebar-container">
+          <Sidebar
+            categories={categories}
+            selected={category}
+            onSelect={setCategory}
+          />
+        </div>
+      )}
+
+      {/* Filter bar oculto en móviles */}
+      <div className="filter-row desktop-filter">
         <FilterBar
           brand={brand}
           setBrand={setBrand}
@@ -384,11 +396,13 @@ export default function Store() {
           className={`store-body ${view === "catalog" ? "with-sidebar" : "no-sidebar"}`}
         >
           {view === "catalog" && (
-            <Sidebar
-              categories={categories}
-              selected={category}
-              onSelect={setCategory}
-            />
+            <div className="desktop-sidebar-container">
+              <Sidebar
+                categories={categories}
+                selected={category}
+                onSelect={setCategory}
+              />
+            </div>
           )}
           <main className="store-main">
             {view === "catalog" && (
