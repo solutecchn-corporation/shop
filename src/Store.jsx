@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useMemo, useState, useEffect, useRef } from "react";
 import Header from "./components/Header";
 import FilterBar from "./components/FilterBar";
 import ProfileModal from "./components/ProfileModal";
@@ -9,14 +9,18 @@ import MyOrders from "./components/MyOrders";
 import OrderModal from "./components/OrderModal";
 import OrderSuccessModal from "./components/OrderSuccessModal";
 import useProducts from "./hooks/useProducts";
+import usePromotions from "./hooks/usePromotions";
+import PromoBanner from "./components/PromoBanner";
 import { loginWebUser, registerWebUser } from "./lib/auth";
 import { createWebOrder, listUserOrders } from "./lib/orders";
 
 export default function Store() {
+  const toastTimeoutRef = useRef(null);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("");
   const [brand, setBrand] = useState("");
   const [model, setModel] = useState("");
+  const [cartNotice, setCartNotice] = useState("");
   const [cart, setCart] = useState(() => {
     try {
       const rawUser = localStorage.getItem("user");
@@ -115,6 +119,8 @@ export default function Store() {
     error: productsError,
   } = useProducts();
 
+  const { promoMap } = usePromotions();
+
   const categories = useMemo(() => {
     const s = new Set((products || []).map((p) => p.category));
     return Array.from(s);
@@ -136,6 +142,64 @@ export default function Store() {
     return matchCat && matchSearch && matchBrand && matchModel;
   });
 
+  function playAddToCartSound() {
+    if (typeof window === "undefined") return;
+
+    const AudioContextClass =
+      window.AudioContext || window.webkitAudioContext;
+
+    if (!AudioContextClass) return;
+
+    try {
+      const audioContext = new AudioContextClass();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(740, audioContext.currentTime);
+      oscillator.frequency.exponentialRampToValueAtTime(
+        980,
+        audioContext.currentTime + 0.12,
+      );
+
+      gainNode.gain.setValueAtTime(0.0001, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.08,
+        audioContext.currentTime + 0.02,
+      );
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.0001,
+        audioContext.currentTime + 0.22,
+      );
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.start();
+      oscillator.stop(audioContext.currentTime + 0.24);
+      oscillator.onended = () => {
+        audioContext.close().catch(() => {});
+      };
+    } catch (error) {
+      // ignore audio errors
+    }
+  }
+
+  function showCartNotice(productName) {
+    const message = `${String(productName || "Producto").trim()} agregado al carrito`;
+
+    setCartNotice(message);
+
+    if (toastTimeoutRef.current) {
+      clearTimeout(toastTimeoutRef.current);
+    }
+
+    toastTimeoutRef.current = setTimeout(() => {
+      setCartNotice("");
+      toastTimeoutRef.current = null;
+    }, 2200);
+  }
+
   function handleAdd(product) {
     setCart((cur) => {
       const exists = cur.find((i) => i.id === product.id);
@@ -146,6 +210,9 @@ export default function Store() {
       }
       return [...cur, { ...product, qty: 1 }];
     });
+
+    showCartNotice(product?.title);
+    playAddToCartSound();
   }
 
   function handleRemove(id) {
@@ -206,6 +273,14 @@ export default function Store() {
     setOrders([]);
     setOrdersError("");
   }, [user?.id]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) {
+        clearTimeout(toastTimeoutRef.current);
+      }
+    };
+  }, []);
 
   function handleCheckout() {
     if (!cart.length) {
@@ -304,6 +379,9 @@ export default function Store() {
           }}
         />
       </div>
+      {/* Banner de promociones debajo del filtro */}
+      <PromoBanner />
+
       <div
         className={`store-body ${view === "catalog" ? "with-sidebar" : "no-sidebar"}`}
       >
@@ -317,38 +395,18 @@ export default function Store() {
         <main className="store-main">
           {view === "catalog" && (
             <>
-              <section className="store-benefits">
-                <article className="benefit-card">
-                  <h4>Catálogo técnico</h4>
-                  <p className="muted">
-                    Encuentra repuestos y servicios publicados para la web con
-                    detalle claro y precio en lempiras.
-                  </p>
-                </article>
-                <article className="benefit-card">
-                  <h4>Pedidos simples</h4>
-                  <p className="muted">
-                    Realiza tu pedido en segundos y recibe confirmación para
-                    seguimiento inmediato.
-                  </p>
-                </article>
-                <article className="benefit-card">
-                  <h4>Seguimiento de estados</h4>
-                  <p className="muted">
-                    Si inicias sesión, puedes revisar pedidos pendientes,
-                    enviados, cancelados o pagados.
-                  </p>
-                </article>
-              </section>
-
               <section className="catalog">
-                <h3>Productos y Servicios</h3>
+                <h3 className="catalog-title">Productos y Servicios</h3>
                 {productsLoading ? (
                   <div className="empty">Cargando productos...</div>
                 ) : productsError ? (
                   <div className="empty">Error cargando productos.</div>
                 ) : (
-                  <ProductList products={filtered} onAdd={handleAdd} />
+                  <ProductList
+                    products={filtered}
+                    onAdd={handleAdd}
+                    promoMap={promoMap}
+                  />
                 )}
               </section>
             </>
@@ -399,19 +457,31 @@ export default function Store() {
           )}
         </main>
       </div>
-     <footer className="store-footer">
-  <p>© {new Date().getFullYear()} <strong>Repuestos & Servicios Solutecc</strong></p>
-  
-  <p>
-    📞 Teléfono: <a href="tel:98436513">9843-6513</a> | 
-    📧 Correo: <a href="mailto:solutecc2@gmail.com">solutecc2@gmail.com</a>
-  </p>
+      <div
+        className={`cart-toast ${cartNotice ? "show" : ""}`}
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        <span className="cart-toast-icon">✓</span>
+        <span className="cart-toast-text">{cartNotice}</span>
+      </div>
+      <footer className="store-footer">
+        <p>
+          © {new Date().getFullYear()}{" "}
+          <strong>Repuestos & Servicios Solutecc</strong>
+        </p>
 
-  <p>
-    📍 Dirección: Coxen Hole, entrada a Mantrapp, frente a Escuela ESBIR,
-    Roatán, Islas de la Bahía
-  </p>
-</footer>
+        <p>
+          📞 Teléfono: <a href="tel:98436513">9843-6513</a> | 📧 Correo:{" "}
+          <a href="mailto:solutecc2@gmail.com">solutecc2@gmail.com</a>
+        </p>
+
+        <p>
+          📍 Dirección: Coxen Hole, entrada a Mantrapp, frente a Escuela ESBIR,
+          Roatán, Islas de la Bahía
+        </p>
+      </footer>
     </div>
   );
 }
