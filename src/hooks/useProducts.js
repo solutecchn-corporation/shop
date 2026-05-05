@@ -14,6 +14,7 @@ function normalizeProduct(item) {
     image: item.imagen || "",
     price: Number(firstPrice?.precio || 0),
     sku: item.sku,
+    stock: Number(item.stock || 0),
     barcode: item.codigo_barras || "",
     type: item.tipo || "producto",
     webPublished: Boolean(item.publicacion_web),
@@ -56,7 +57,30 @@ export default function useProducts() {
 
         if (error) throw error;
 
-        const normalizedProducts = (data || []).map(normalizeProduct);
+        const productsData = data || [];
+        const productIds = productsData.map((item) => item.id).filter(Boolean);
+
+        let stockByProductId = {};
+        if (productIds.length) {
+          const { data: stockData, error: stockError } = await supabase
+            .from("vista_stock_simple")
+            .select("producto_id, stock")
+            .in("producto_id", productIds);
+
+          if (stockError) throw stockError;
+
+          stockByProductId = (stockData || []).reduce((acc, row) => {
+            acc[row.producto_id] = Number(row.stock || 0);
+            return acc;
+          }, {});
+        }
+
+        const normalizedProducts = productsData.map((item) =>
+          normalizeProduct({
+            ...item,
+            stock: stockByProductId[item.id] ?? 0,
+          }),
+        );
 
         if (mounted) setProducts(normalizedProducts);
       } catch (err) {

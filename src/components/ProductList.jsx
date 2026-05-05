@@ -58,6 +58,14 @@ export default function ProductList({ products, onAdd, promoMap = {} }) {
                       Modelo: <strong>{p.model}</strong>
                     </span>
                   )}
+                  {p.sku && (
+                    <span className="model">
+                      Código: <strong>{p.sku}</strong>
+                    </span>
+                  )}
+                  <span className="model">
+                    Stock: <strong>{p.stock}</strong>
+                  </span>
                 </div>
                 <p className="muted small desc">{p.description}</p>
                 <div className="product-meta">
